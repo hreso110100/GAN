@@ -1,5 +1,45 @@
 from torch import nn, cat
-from torch.nn import Upsample, Conv2d, Sequential, LeakyReLU, BatchNorm2d, Dropout, ReLU, Sigmoid
+from torch.nn import Upsample, Conv2d, Sequential, LeakyReLU, BatchNorm2d, Dropout, ReLU, Sigmoid, Module, \
+    ConvTranspose2d, ZeroPad2d
+
+
+class UNetDown(nn.Module):
+    def __init__(self, input_size: int, output_filters: int, normalize=True, dropout=0.0):
+        super(UNetDown, self).__init__()
+
+        self.model = Sequential(
+            Conv2d(input_size, output_filters, kernel_size=(4, 1), stride=2, padding=1, bias=False)
+        )
+
+        if normalize:
+            self.model.add_module("BatchNorm2d", BatchNorm2d(output_filters, momentum=0.8))
+        self.model.add_module("LeakyReLU", LeakyReLU(0.2))
+
+        if dropout:
+            self.model.add_module("Dropout", Dropout(dropout))
+
+    def forward(self, x):
+        return self.model(x)
+
+
+class UNetUp(nn.Module):
+    def __init__(self, input_size: int, output_filters: int, dropout=0.0):
+        super(UNetUp, self).__init__()
+
+        self.model = Sequential(
+            ConvTranspose2d(input_size, output_filters, kernel_size=4, stride=2, padding=1, bias=False),
+            BatchNorm2d(output_filters, momentum=0.8),
+            LeakyReLU(0.2, inplace=True),
+        )
+        if dropout:
+            self.model.add_module("Dropout", Dropout(dropout))
+
+    def forward(self, layer, skip_input):
+        layer = self.model(layer)
+        layer = cat((layer, skip_input), 1)
+
+        return layer
+
 
 """
     Implementation based on UNet generator
@@ -7,78 +47,50 @@ from torch.nn import Upsample, Conv2d, Sequential, LeakyReLU, BatchNorm2d, Dropo
 
 
 class Generator(nn.Module):
-
-    def __init__(self, file_shape: tuple, filters: int):
+    def __init__(self, file_shape: tuple, output_filters=8, output_channels=2):
         super(Generator, self).__init__()
-        self.file_shape = file_shape
-        self.filters = filters
 
-        # Downsampling
-        self.down_1 = self.conv2d(self.filters, batch_norm=False)
-        self.down_2 = self.conv2d(self.filters * 2)
-        self.down_3 = self.conv2d(self.filters * 4)
-        self.down_4 = self.conv2d(self.filters * 8)
-        self.down_5 = self.conv2d(self.filters * 8)
-        self.down_6 = self.conv2d(self.filters * 8)
-        self.down_7 = self.conv2d(self.filters * 8)
+        # DownSampling
+        self.down1 = UNetDown(file_shape[0], output_filters, normalize=False)
+        self.down2 = UNetDown(output_filters, output_filters * 2)
+        self.down3 = UNetDown(output_filters * 2, output_filters * 4)
+        self.down4 = UNetDown(output_filters * 4, output_filters * 8, dropout=0.5)
+        self.down5 = UNetDown(output_filters * 8, output_filters * 8, dropout=0.5)
+        self.down6 = UNetDown(output_filters * 8, output_filters * 8, dropout=0.5)
+        self.down7 = UNetDown(output_filters * 8, output_filters * 8, dropout=0.5)
+        self.down8 = UNetDown(output_filters * 8, output_filters * 8, normalize=False, dropout=0.5)
 
-        # Upsampling
-        self.up_1 = self.deconv2d(self.filters * 8, self.down_6)
-        self.up_2 = self.deconv2d(self.filters * 8, self.down_5)
-        self.up_3 = self.deconv2d(self.filters * 8, self.down_4)
-        self.up_4 = self.deconv2d(self.filters * 4, self.down_3)
-        self.up_5 = self.deconv2d(self.filters * 2, self.down_2)
-        self.up_6 = self.deconv2d(self.filters, self.down_1)
-        self.up_7 = Upsample(size=(2, 1))
+        # UpSampling
+        self.up1 = UNetUp(output_filters * 8, output_filters * 8, dropout=0.5)
+        self.up2 = UNetUp(output_filters * 16, output_filters * 8, dropout=0.5)
+        self.up3 = UNetUp(output_filters * 16, output_filters * 8, dropout=0.5)
+        self.up4 = UNetUp(output_filters * 16, output_filters * 8, dropout=0.5)
+        self.up5 = UNetUp(output_filters * 16, output_filters * 4)
+        self.up6 = UNetUp(output_filters * 8, output_filters * 2)
+        self.up7 = UNetUp(output_filters * 4, output_filters)
 
-        self.last = Conv2d(in_channels=2048, out_channels=2, kernel_size=4, padding=1)
-        self.last_activation = Sigmoid()
+        self.last = nn.Sequential(
+            Upsample(scale_factor=2),
+            ZeroPad2d((1, 0, 1, 0)),
+            Conv2d(output_filters * 2, output_channels, kernel_size=(4, 1), padding=1),
+            Sigmoid(),
+        )
 
-    def conv2d(self, filters: int, kernel_size=(4, 1), batch_norm=True):
-        model = Sequential()
+    def forward(self, x):
+        d1 = self.down1(x)
+        d2 = self.down2(d1)
+        d3 = self.down3(d2)
+        d4 = self.down4(d3)
+        d5 = self.down5(d4)
+        d6 = self.down6(d5)
+        d7 = self.down7(d6)
+        d8 = self.down8(d7)
+        u1 = self.up1(d8, d7)
+        u2 = self.up2(u1, d6)
+        u3 = self.up3(u2, d5)
+        u4 = self.up4(u3, d4)
+        u5 = self.up5(u4, d3)
+        u6 = self.up6(u5, d2)
+        u7 = self.up7(u6, d1)
 
-        model.add_module("Conv2d", Conv2d(in_channels=2048, out_channels=filters,
-                                          kernel_size=kernel_size, stride=(2, 1), padding=1))
-        model.add_module("LeakyReLU", LeakyReLU(0.2))
-
-        if batch_norm:
-            model.add_module("BatchNorm2d", BatchNorm2d(num_features=1, momentum=0.8))
-
-        return model
-
-    def deconv2d(self, filters, skipped_layer, kernel_size=(4, 1), dropout_rate=False):
-        model = Sequential()
-
-        model.add_module("UpSample", Upsample(size=(2, 1)))
-        model.add_module("Conv2d",
-                         Conv2d(in_channels=2048, out_channels=filters, kernel_size=kernel_size, stride=(2, 1)))
-        model.add_module("ReLU", ReLU())
-
-        if dropout_rate:
-            model.add_module("Dropout", Dropout(1.0))
-
-        model.add_module("BatchNorm2d", BatchNorm2d(num_features=1, momentum=0.8))
-        model.add_module("Concatenate", cat(model.get, skipped_layer))
-        return model
-
-    def forward(self, layer_input):
-        layer_input = self.down_1(layer_input)
-        layer_input = self.down_2(layer_input)
-        layer_input = self.down_3(layer_input)
-        layer_input = self.down_4(layer_input)
-        layer_input = self.down_5(layer_input)
-        layer_input = self.down_6(layer_input)
-        layer_input = self.down_7(layer_input)
-
-        layer_input = self.up_1(layer_input)
-        layer_input = self.up_2(layer_input)
-        layer_input = self.up_3(layer_input)
-        layer_input = self.up_4(layer_input)
-        layer_input = self.up_5(layer_input)
-        layer_input = self.up_6(layer_input)
-        layer_input = self.up_7(layer_input)
-
-        layer_input = self.last(layer_input)
-        layer_input = self.last_activation(layer_input)
-
-        return layer_input
+        return self.last(u7)

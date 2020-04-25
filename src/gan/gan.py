@@ -24,6 +24,8 @@ class GAN:
         self.heat_map = HeatMap()
         self.data_loader = Loader(window=self.file_rows, portion=1000, days=3)
 
+        self.distance_history = []
+
         tensor_A = tensor(self.file_shape)
         tensor_B = tensor(self.file_shape)
 
@@ -57,6 +59,20 @@ class GAN:
             network_output.append(out[0])
 
         return np.array(network_input), np.array(network_output)
+
+    def sample_images(self, epoch, batch_i):
+        (files_A, files_B) = self.prepare_sequences(1)
+        fake_A = self.generator.predict(files_B)
+
+        files_A = files_A.reshape(self.file_rows, self.channels)
+        fake_A = fake_A.reshape(self.file_rows, self.channels)
+        files_B = files_B.reshape(self.file_rows, self.channels)
+        avg = self.data_loader.save_generated_data(epoch, batch_i, files_B, files_A, fake_A, folder=self.folder_to_save,
+                                                   save=0)
+        self.heat_map.plot(files_B, savefolder=self.folder_to_save, epoch=epoch, save=0)
+        self.heat_map.plot(files_A, savefolder=self.folder_to_save, epoch=epoch, save=0)
+        self.heat_map.plot(fake_A, savefolder=self.folder_to_save, epoch=epoch)
+        self.distance_history.append(({"Average distance": avg / 3}))
 
     def train(self, epochs: int, batch_size=1, sample_interval=50):
         start_time = datetime.now()
