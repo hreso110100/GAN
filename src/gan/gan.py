@@ -1,9 +1,5 @@
-from datetime import datetime
-
 import numpy as np
-import torch
-from torch import Tensor, tensor
-from torch.autograd import Variable
+from torch import tensor
 from torch.nn import MSELoss, L1Loss
 from torch.optim import Adam
 
@@ -16,12 +12,11 @@ from src.utils.loader import Loader
 class GAN:
 
     def __init__(self):
-        self.percentage = 100  # percentual distribution of periodic samples
+        self.percentage = 100
         self.file_rows = 2048
         self.file_cols = 1
         self.channels = 2  # 3 if bearing, 2 if just lat/lon
         self.file_shape = (self.file_rows, self.file_cols, self.channels)
-        self.folder_to_save = 'Users/dhresko/Documents/Trajectories/generated'
 
         self.heat_map = HeatMap()
         self.data_loader = Loader(window=self.file_rows, portion=1000, days=3)
@@ -41,29 +36,37 @@ class GAN:
         self.loss_mse = MSELoss()
         self.loss_l1 = L1Loss()
 
-    def prepare_sequences(self, batch_size=1):
-        network_input = []
-        network_output = []
+    def prepare_sequences(self, batch_size=1) -> tuple:
+        """
+        Preparing sequences of real and corrupted data.
 
-        for inp, out in self.data_loader.load_batch(batch_size):
-            network_input.append(inp[0])
-            network_output.append(out[0])
+        :param batch_size: Size of batch.
 
-        return tensor(network_input, dtype=torch.double), tensor(network_output, dtype=torch.double)
+        :return: Tuple of real and corrupted data.
+        """
+
+        real_data = []
+        corrupted_data = []
+
+        for _, (real, corrupted) in enumerate(self.data_loader.load_batch(batch_size)):
+            real_data.append(real[0])
+            corrupted_data.append(corrupted[0])
+
+        return tensor(real_data), tensor(corrupted_data)
 
     def sample_images(self, epoch, batch_i):
-        (real_A, real_B) = self.prepare_sequences(1)
-        fake_A = self.generator(real_A)
+        real, corrupted = self.prepare_sequences()
+        fake = self.generator(real)
 
-        real_A = real_A.reshape(self.file_rows, self.channels)
-        fake_A = fake_A.reshape(self.file_rows, self.channels)
-        real_B = real_B.reshape(self.file_rows, self.channels)
+        real = real.reshape(self.file_rows, self.channels)
+        fake = fake.reshape(self.file_rows, self.channels)
+        corrupted = corrupted.reshape(self.file_rows, self.channels)
 
-        avg = self.data_loader.save_generated_data(epoch, batch_i, real_B, real_A, fake_A, folder=self.folder_to_save,
-                                                   save=0)
-        self.heat_map.plot(real_B, savefolder=self.folder_to_save, epoch=epoch, save=0)
-        self.heat_map.plot(real_A, savefolder=self.folder_to_save, epoch=epoch, save=0)
-        self.heat_map.plot(fake_A, savefolder=self.folder_to_save, epoch=epoch)
+        avg = self.data_loader.save_data(epoch, batch_i, corrupted, real, fake)
+
+        self.heat_map.plot(corrupted, savefolder=self.folder_to_save, epoch=epoch)
+        self.heat_map.plot(real, savefolder=self.folder_to_save, epoch=epoch)
+        self.heat_map.plot(fake, savefolder=self.folder_to_save, epoch=epoch)
         self.distance_history.append(({"Average distance": avg / 3}))
 
     def train(self, epochs: int, batch_size=1, sample_interval=50):

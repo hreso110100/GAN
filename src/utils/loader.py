@@ -1,9 +1,8 @@
 import os
-from math import sin, cos, sqrt, atan2, radians
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from torch import tensor
 
 
 class Loader:
@@ -65,10 +64,7 @@ class Loader:
                 print(f"LOGGER: Cannot load given file {self.fileList[chosen_index]}.")
                 continue
 
-            # Timestamp will be dropped,
-            loaded_data = loaded_data.drop(loaded_data.columns[0], axis=1)
-            loaded_data = loaded_data.values
-            loaded_data = loaded_data[:self.window, :]
+            loaded_data = self.drop_timestamp(loaded_data)
 
             # Scale the values according to the lat/lon intervals
             lat = (loaded_data[:, 0] - 48.7) * 30
@@ -83,6 +79,13 @@ class Loader:
             noise = self.add_corruption(batch)
 
             yield np.array(batch), np.array(noise)
+
+    def drop_timestamp(self, loaded_data):
+        loaded_data = loaded_data.drop(loaded_data.columns[0], axis=1)
+        loaded_data = loaded_data.values
+        loaded_data = loaded_data[:self.window, :]
+
+        return loaded_data
 
     def add_corruption(self, files: list) -> list:
         """
@@ -108,46 +111,17 @@ class Loader:
 
         return corrupt
 
-    def count_distance(self, lat1: float, lon1: float, lat2: float, lon2: float):
-        """
-        Calculating distance between two points.
-
-        :param lat1: Latitude of point A.
-        :param lon1: Longitude of point A.
-        :param lat2: Latitude of point B.
-        :param lon2: Longitude of point B.
-
-        :return: Distance between two points.
-        """
-
-        R = 6373000  # earth radius in meters
-
-        lat1 = radians(lat1)
-        lon1 = radians(lon1)
-        lat2 = radians(lat2)
-        lon2 = radians(lon2)
-
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-
-        a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-        c = 2 * atan2(sqrt(a), sqrt(1 - a))
-
-        distance = R * c
-
-        return distance
-
-    def plot_losses(self, history):
-        hist = pd.DataFrame(history)
-        plt.figure(figsize=(10, 5))
-
-        for colnm in hist.columns:
-            plt.plot(hist[colnm], label=colnm)
-
-        plt.legend()
-        plt.ylabel("loss")
-        plt.xlabel("epochs")
-        plt.show()
+    # def plot_losses(self, history):
+    #     hist = pd.DataFrame(history)
+    #     plt.figure(figsize=(10, 5))
+    #
+    #     for colnm in hist.columns:
+    #         plt.plot(hist[colnm], label=colnm)
+    #
+    #     plt.legend()
+    #     plt.ylabel("loss")
+    #     plt.xlabel("epochs")
+    #     plt.show()
 
     def load_generated(self, batch_size, cols, folder="./movementLogs", deli="\t"):
         """
@@ -163,9 +137,6 @@ class Loader:
         shape = (self.window, cols, self.channels)
 
         for index in range(batch_size):
-            """Latitude interval:  [48.7027684, 48.7171252]
-            Longitude interval:  [21.228062, 21.2497423]"""
-
             batch = []
             try:
                 matrix = pd.read_csv(self.dir_data + "/" + self.fileList[index], header=None, delimiter=deli)
@@ -174,9 +145,7 @@ class Loader:
                 continue
             matrix = matrix.drop(matrix.columns[0], axis=0)
             #            matrix = matrix.drop(matrix.columns[3], axis=1)
-            matrix = matrix.drop(matrix.columns[0], axis=1)
-            matrix = matrix.values
-            matrix = matrix[:self.window, :]
+            null = self.drop_timestamp(matrix)
             # scale the values according to the lat/lon intervals
 
             lat = (matrix[:, 0] - 48.7) * 30
@@ -190,45 +159,39 @@ class Loader:
             # print(np.array(batch))
             yield np.array(batch), matrix
 
-    def save_generated_data(self, epoch, batch, files_B, files_A, fake_A, folder='Trajectories/release/pix2pix/',
-                            save=1):
+    def save_data(self, epoch: int, batch: int, corrupted: tensor, real: tensor, fake: tensor, save=True):
+        """
+        Saving data.
 
-        #        files_A = files_A.reshape(3,self.window,2)
-        #        fake_A = fake_A.reshape(3,self.window,2)
-        #        files_B = files_B.reshape(3,self.window,2)
-        avg = 0
+        :param epoch: Number of epochs.
+        :param batch: Number of batches.
+        :param corrupted: Corrupted data.
+        :param real: Real data.
+        :param fake: Generated data.
+        :param save: Boolean if save or not.
+        """
 
-        for i in range(1):
-            df = pd.DataFrame()
-            df[0] = files_B[:, 0] / 30 + 48.7
-            df[1] = files_B[:, 1] / 30 + 21.22
-            if save:
-                df.to_csv(folder + str(epoch) + '_' + str(batch) + '_base.csv', sep='\t')
+        folder = "/Users/dhresko/Documents/Trajectories/generated"
 
-            df2 = pd.DataFrame()
-            df2[0] = fake_A[:, 0] / 30 + 48.7
-            df2[1] = fake_A[:, 1] / 30 + 21.22
-            if save:
-                df2.to_csv(folder + str(epoch) + '_' + str(batch) + '_gener.csv', sep='\t')
+        self.save(epoch, batch, corrupted, folder, "corrupted", save)
+        self.save(epoch, batch, real, folder, "real", save)
+        self.save(epoch, batch, fake, folder, "generated", save)
 
-            df3 = pd.DataFrame()
-            df3[0] = files_A[:, 0] / 30 + 48.7
-            df3[1] = files_A[:, 1] / 30 + 21.22
-            if save:
-                df3.to_csv(folder + str(epoch) + '_' + str(batch) + '_true.csv', sep='\t')
+    def save(self, epoch: int, batch: int, data: tensor, folder: str, file_name: str, save=True):
+        """
+        Base method for saving.
 
-            for i in range(self.window):
-                avg += self.count_distance(df3[0][i], df3[1][i], df2[0][i], df2[1][i])
-
-        # return larges/10,avg/10
-        avg = avg / self.window
-        if avg > 300:
-            avg = 300
-        return avg
-
-    def save(self, batch, file, folder='Trajectories/release/pix2pix/'):
+        :param epoch: Number of epochs.
+        :param batch: Number of batches.
+        :param data: Data to save.
+        :param folder: Folder where data will be saved.
+        :param file_name: Name of the final file. File will be CSV by default.
+        :param save: Boolean if save or not.
+        """
 
         df = pd.DataFrame()
-        df[0] = file[:, 0] / 30 + 48.7
-        df[1] = file[:, 1] / 30 + 21.22
-        df.to_csv(folder + str(batch) + '.csv')
+        df[0] = data[:, 0] / 30 + 48.7
+        df[1] = data[:, 1] / 30 + 21.22
+
+        if save:
+            df.to_csv(f"{folder}/{str(epoch)}_{str(batch)}_{file_name}.csv")
