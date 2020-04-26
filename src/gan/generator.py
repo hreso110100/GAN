@@ -8,7 +8,7 @@ class UNetDown(nn.Module):
         super(UNetDown, self).__init__()
 
         self.model = Sequential(
-            Conv2d(input_size, output_filters, kernel_size=(4, 1), stride=2, padding=1, bias=False)
+            Conv2d(input_size, output_filters, kernel_size=(4, 1), stride=2, padding=2, bias=False)
         )
 
         if normalize:

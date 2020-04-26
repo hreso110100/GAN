@@ -3,16 +3,16 @@ from torch.nn import Conv2d, Sequential, LeakyReLU, BatchNorm2d
 
 
 class Discriminator(nn.Module):
-    def __init__(self, file_shape: tuple, out_filters=8):
+    def __init__(self, file_shape: tuple, output_filters=8):
         super(Discriminator, self).__init__()
 
         self.model = Sequential(
-            *self.build_block(file_shape[0] * 2, out_filters, normalization=False),
-            *self.build_block(out_filters, out_filters * 2),
-            *self.build_block(out_filters * 2, out_filters * 4),
-            *self.build_block(out_filters * 4, out_filters * 8),
+            *self.build_block(file_shape[0] * 2, output_filters, normalization=False),
+            *self.build_block(output_filters, output_filters * 2),
+            *self.build_block(output_filters * 2, output_filters * 4),
+            *self.build_block(output_filters * 4, output_filters * 8),
 
-            nn.Conv2d(out_filters * 8, 1, kernel_size=(4, 1), padding=1)
+            nn.Conv2d(output_filters * 8, 1, kernel_size=(4, 1), padding=1)
         )
 
     def build_block(self, in_filters: int, out_filters: int, normalization=True):
