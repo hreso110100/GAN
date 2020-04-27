@@ -3,7 +3,7 @@ from math import sin, cos, sqrt, atan2, radians
 
 class Distance:
 
-    def __init__(self, window: int):
+    def __init__(self, window=256):
         self.window = window
 
     def get_avg_distance(self, generated, real):

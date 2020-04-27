@@ -16,7 +16,7 @@ class Discriminator(nn.Module):
         )
 
     def build_block(self, in_filters: int, out_filters: int, normalization=True):
-        layers = [Conv2d(in_filters, out_filters, kernel_size=(4, 1), stride=2, padding=1)]
+        layers = [Conv2d(in_filters, out_filters, kernel_size=(4, 1), stride=(2, 1), padding=1)]
 
         if normalization:
             layers.append(BatchNorm2d(num_features=out_filters, momentum=0.8))
@@ -25,7 +25,7 @@ class Discriminator(nn.Module):
 
         return layers
 
-    def forward(self, dataset_data, generated_data):
-        img_input = cat((dataset_data, generated_data), 1)
+    def forward(self, input_a, input_b):
+        img_input = cat((input_a, input_b), 1)
 
         return self.model(img_input)

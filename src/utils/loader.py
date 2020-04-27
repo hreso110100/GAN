@@ -2,6 +2,7 @@ import os
 
 import numpy as np
 import pandas as pd
+import torch
 from torch import tensor
 
 
@@ -15,7 +16,7 @@ class Loader:
         self.number_of_files = len(self.fileList)
         self.window = window
         self.channels = channels
-        self.shape = (self.window, 1, self.channels)
+        self.shape = (self.channels, self.window, 1)
         self.max_lat = 48.7171252
         self.min_lat = 48.7027684
         self.max_lon = 21.2497423
@@ -65,27 +66,45 @@ class Loader:
                 continue
 
             loaded_data = self.drop_timestamp(loaded_data)
-
-            # Scale the values according to the lat/lon intervals
-            lat = (loaded_data[:, 0] - 48.7) * 30
-            loaded_data[:, 0] = lat
-            lon = (loaded_data[:, 1] - 21.22) * 30
-            loaded_data[:, 1] = lon
-            loaded_data = np.nan_to_num(loaded_data)
+            loaded_data = self.scale_data(loaded_data)
 
             loaded_data = loaded_data.reshape(self.shape)
             batch.append(loaded_data)
 
             noise = self.add_corruption(batch)
 
-            yield np.array(batch), np.array(noise)
+            yield batch, noise
 
-    def drop_timestamp(self, loaded_data):
-        loaded_data = loaded_data.drop(loaded_data.columns[0], axis=1)
-        loaded_data = loaded_data.values
-        loaded_data = loaded_data[:self.window, :]
+    def scale_data(self, data) -> np.array:
+        """
+        Rescaling data based on latitude and longitude range.
 
-        return loaded_data
+        :param data: Data to scale.
+
+        :return: Scaled data.
+        """
+
+        lat = (data[:, 0] - 48.7) * 30
+        data[:, 0] = lat
+        lon = (data[:, 1] - 21.22) * 30
+        data[:, 1] = lon
+        data = np.nan_to_num(data)
+
+        return data
+
+    def drop_timestamp(self, data) -> np.array:
+        """
+        Dropping timestamp from dataset.
+
+        :param data: Data to transform.
+        :return: Transformed data.
+        """
+
+        data = data.drop(data.columns[0], axis=1)
+        data = data.values
+        data = data[:self.window, :]
+
+        return data
 
     def add_corruption(self, files: list) -> list:
         """
@@ -105,8 +124,8 @@ class Loader:
             file_copy = np.copy(file)
 
             for remove_index in remove_indexes:  # remove random rows in given file
-                file_copy[remove_index, 0, 0] = 0
-                file_copy[remove_index, 0, 1] = 0
+                file_copy[0, remove_index, 0] = 0
+                file_copy[1, remove_index, 0] = 0
             corrupt.append(file_copy)
 
         return corrupt
@@ -128,8 +147,7 @@ class Loader:
         load trajectories from given folder
         window represents length of the loaded data, how many logs should be contained throughout one sample
         """
-        #        if batch_size == 1:
-        #            batch_size = 100
+
         self.dir_data = folder
         self.fileList = self.get_files()
         self.number_of_files = len(self.fileList)
@@ -148,11 +166,7 @@ class Loader:
             null = self.drop_timestamp(matrix)
             # scale the values according to the lat/lon intervals
 
-            lat = (matrix[:, 0] - 48.7) * 30
-            matrix[:, 0] = lat
-            lon = (matrix[:, 1] - 21.22) * 30
-            matrix[:, 1] = lon
-            matrix = np.nan_to_num(matrix)
+            null = self.scale_data(matrix)
 
             matrix2 = matrix.reshape(shape)
             batch.append(matrix2)

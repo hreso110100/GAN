@@ -5,6 +5,7 @@ from torch.optim import Adam
 
 from src.gan.discriminator import Discriminator
 from src.gan.generator import Generator
+from src.utils.distance import Distance
 from src.utils.heatmaps import HeatMap
 from src.utils.loader import Loader
 
@@ -16,9 +17,10 @@ class GAN:
         self.file_rows = 2048
         self.file_cols = 1
         self.channels = 2  # 3 if bearing, 2 if just lat/lon
-        self.file_shape = (self.file_rows, self.file_cols, self.channels)
+        self.file_shape = (self.channels, self.file_rows, self.file_cols)
 
         self.heat_map = HeatMap()
+        self.distance = Distance()
         self.data_loader = Loader(window=self.file_rows, portion=1000, days=3)
 
         self.distance_history = []
@@ -52,7 +54,7 @@ class GAN:
             real_data.append(real[0])
             corrupted_data.append(corrupted[0])
 
-        return tensor(real_data), tensor(corrupted_data)
+        return tensor(real_data).float(), tensor(corrupted_data).float()
 
     def sample_images(self, epoch, batch_i):
         real, corrupted = self.prepare_sequences()
@@ -62,12 +64,13 @@ class GAN:
         fake = fake.reshape(self.file_rows, self.channels)
         corrupted = corrupted.reshape(self.file_rows, self.channels)
 
-        avg = self.data_loader.save_data(epoch, batch_i, corrupted, real, fake)
+        self.data_loader.save_data(epoch, batch_i, corrupted, real, fake)
+        avg_distance = self.distance.get_avg_distance(fake, real)
 
-        self.heat_map.plot(corrupted, savefolder=self.folder_to_save, epoch=epoch)
-        self.heat_map.plot(real, savefolder=self.folder_to_save, epoch=epoch)
-        self.heat_map.plot(fake, savefolder=self.folder_to_save, epoch=epoch)
-        self.distance_history.append(({"Average distance": avg / 3}))
+        # self.heat_map.plot(corrupted, savefolder=self.folder_to_save, epoch=epoch)
+        # self.heat_map.plot(real, savefolder=self.folder_to_save, epoch=epoch)
+        # self.heat_map.plot(fake, savefolder=self.folder_to_save, epoch=epoch)
+        self.distance_history.append(({"Average distance": avg_distance / 3}))
 
     def train(self, epochs: int, batch_size=1, sample_interval=50):
 
@@ -81,11 +84,11 @@ class GAN:
             #  Train Generator
             self.optimizer_g.zero_grad()
 
-            fake_A = self.generator(real_B)
-            pred_fake = self.discriminator(fake_A, real_A)
+            fake_B = self.generator(real_A)
+            pred_fake = self.discriminator(fake_B, real_A)
 
             loss_mse = self.loss_mse(pred_fake, valid)
-            loss_l1 = self.loss_l1(fake_A, tensor(real_B))
+            loss_l1 = self.loss_l1(fake_B, real_B)
 
             # Total loss (100 is weight of L1 loss)
             loss_G = loss_mse + (100 * loss_l1)
@@ -94,7 +97,6 @@ class GAN:
             self.optimizer_g.step()
 
             #  Train Discriminator
-
             self.optimizer_d.zero_grad()
 
             # Real loss
@@ -102,7 +104,7 @@ class GAN:
             loss_real = self.loss_mse(pred_real, valid)
 
             # Fake loss
-            pred_fake = self.discriminator(fake_A.detach(), real_B)
+            pred_fake = self.discriminator(fake_B.detach(), real_A)
             loss_fake = self.loss_mse(pred_fake, fake)
 
             # Total loss
