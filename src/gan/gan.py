@@ -1,3 +1,5 @@
+import datetime
+
 import numpy as np
 from torch import tensor
 from torch.nn import MSELoss, L1Loss
@@ -20,13 +22,14 @@ class GAN:
         self.file_shape = (self.channels, self.file_rows, self.file_cols)
 
         self.heat_map = HeatMap()
-        self.distance = Distance()
+        self.distance = Distance(window=self.file_rows)
         self.data_loader = Loader(window=self.file_rows, portion=1000, days=3)
 
         self.distance_history = []
+        self.losses = []
 
         # Building discriminator
-        self.d_patch = (int(self.file_rows / 2 ** 4), 1, 1)
+        self.d_patch = (1, int(self.file_rows / 2 ** 4), 1)
 
         self.discriminator = Discriminator(self.file_shape)
         self.optimizer_d = Adam(params=self.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
@@ -35,6 +38,7 @@ class GAN:
         self.generator = Generator(self.file_shape)
         self.optimizer_g = Adam(params=self.generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
+        # Building losses
         self.loss_mse = MSELoss()
         self.loss_l1 = L1Loss()
 
@@ -56,7 +60,14 @@ class GAN:
 
         return tensor(real_data).float(), tensor(corrupted_data).float()
 
-    def sample_images(self, epoch, batch_i):
+    def sample_images(self, epoch, batch_size):
+        """
+        Continuos saving of data.
+
+        :param epoch: Current epoch.
+        :param batch_size: Batch size.
+        """
+
         real, corrupted = self.prepare_sequences()
         fake = self.generator(real)
 
@@ -64,15 +75,16 @@ class GAN:
         fake = fake.reshape(self.file_rows, self.channels)
         corrupted = corrupted.reshape(self.file_rows, self.channels)
 
-        self.data_loader.save_data(epoch, batch_i, corrupted, real, fake)
+        self.data_loader.save_data(epoch, batch_size, corrupted, real, fake)
         avg_distance = self.distance.get_avg_distance(fake, real)
 
-        # self.heat_map.plot(corrupted, savefolder=self.folder_to_save, epoch=epoch)
-        # self.heat_map.plot(real, savefolder=self.folder_to_save, epoch=epoch)
-        # self.heat_map.plot(fake, savefolder=self.folder_to_save, epoch=epoch)
+        self.heat_map.plot(corrupted, epoch=epoch)
+        self.heat_map.plot(real, epoch=epoch)
+        self.heat_map.plot(fake, epoch=epoch)
         self.distance_history.append(({"Average distance": avg_distance / 3}))
 
     def train(self, epochs: int, batch_size=1, sample_interval=50):
+        start_time = datetime.datetime.now()
 
         # Adversarial ground truths
         valid = tensor(np.ones((batch_size,) + self.d_patch), requires_grad=False)
@@ -112,3 +124,28 @@ class GAN:
 
             loss_D.backward()
             self.optimizer_d.step()
+
+            elapsed_time = datetime.datetime.now() - start_time
+            print(f"[Epoch {epoch}/{epochs}] [D loss: {loss_D}] [G loss: {loss_G}] time: {elapsed_time}")
+
+            if epoch % sample_interval == 0:
+                self.sample_images(epoch, batch_size)
+                self.losses.append({"D": loss_D[0], "G": loss_G[0]})
+
+    def plot_loss(self):
+        pass
+
+    def save_models(self):
+        pass
+
+    # def plot_losses(self, history):
+    #     hist = pd.DataFrame(history)
+    #     plt.figure(figsize=(10, 5))
+    #
+    #     for colnm in hist.columns:
+    #         plt.plot(hist[colnm], label=colnm)
+    #
+    #     plt.legend()
+    #     plt.ylabel("loss")
+    #     plt.xlabel("epochs")
+    #     plt.show()

@@ -19,7 +19,7 @@ class Distance:
         avg_distance = 0
 
         for i in range(self.window):
-            avg_distance += self.count_distance(real[0][i], real[1][i], generated[0][i], generated[1][i])
+            avg_distance += self.count_distance(real[i][0], real[i][1], generated[i][0], generated[i][1])
 
         avg_distance = avg_distance / self.window
 

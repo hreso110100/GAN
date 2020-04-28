@@ -2,7 +2,6 @@ import os
 
 import numpy as np
 import pandas as pd
-import torch
 from torch import tensor
 
 
@@ -17,12 +16,6 @@ class Loader:
         self.window = window
         self.channels = channels
         self.shape = (self.channels, self.window, 1)
-        self.max_lat = 48.7171252
-        self.min_lat = 48.7027684
-        self.max_lon = 21.2497423
-        self.min_lon = 21.228062
-        self.lat_dist = (self.max_lat - self.min_lat)  # 0.015
-        self.lon_dist = (self.max_lon - self.min_lon)  # 0.021
 
     def get_files(self) -> list:
         """
@@ -56,7 +49,6 @@ class Loader:
         chosen_files = np.random.choice(self.number_of_files, int(batch_size * (percentage / 100)), replace=False)
 
         for index, chosen_index in enumerate(chosen_files):
-            print(f"LOGGER: Loading file {index + 1} / {len(chosen_files)}.")
             batch = []
 
             try:
@@ -130,18 +122,6 @@ class Loader:
 
         return corrupt
 
-    # def plot_losses(self, history):
-    #     hist = pd.DataFrame(history)
-    #     plt.figure(figsize=(10, 5))
-    #
-    #     for colnm in hist.columns:
-    #         plt.plot(hist[colnm], label=colnm)
-    #
-    #     plt.legend()
-    #     plt.ylabel("loss")
-    #     plt.xlabel("epochs")
-    #     plt.show()
-
     def load_generated(self, batch_size, cols, folder="./movementLogs", deli="\t"):
         """
         load trajectories from given folder
@@ -204,6 +184,8 @@ class Loader:
         """
 
         df = pd.DataFrame()
+        data = data.detach()
+
         df[0] = data[:, 0] / 30 + 48.7
         df[1] = data[:, 1] / 30 + 21.22
 
