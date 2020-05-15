@@ -2,13 +2,18 @@ import os
 
 import numpy as np
 import pandas as pd
+import yaml
 from torch import tensor
 
 
 class Loader:
 
     def __init__(self, channels=2, window=256, portion=0, days=58):
-        self.dir_data = "D://dHresko/movementLogs"
+        with open(f"../src/config/model_config.yml", 'r') as file:
+            self.config = yaml.load(file, Loader=yaml.FullLoader)
+
+        self.dataset_folder = self.config["folders"]["dataset"]
+        self.generated_folder = self.config["folders"]["generated"]
         self.portion = portion
         self.days = days
         self.fileList = self.get_files()
@@ -24,7 +29,7 @@ class Loader:
         :return: List of files in dataset dir.
         """
 
-        files = np.sort(os.listdir(self.dir_data))
+        files = np.sort(os.listdir(self.dataset_folder))
 
         if self.portion > 0:
             files = files[:self.days * self.portion]
@@ -52,7 +57,7 @@ class Loader:
             batch = []
 
             try:
-                loaded_data = pd.read_csv(self.dir_data + "/" + self.fileList[chosen_index], header=None)
+                loaded_data = pd.read_csv(self.dataset_folder + "/" + self.fileList[chosen_index], header=None)
             except FileNotFoundError:
                 print(f"LOGGER: Cannot load given file {self.fileList[chosen_index]}.")
                 continue
@@ -128,7 +133,7 @@ class Loader:
         window represents length of the loaded data, how many logs should be contained throughout one sample
         """
 
-        self.dir_data = folder
+        self.dataset_folder = folder
         self.fileList = self.get_files()
         self.number_of_files = len(self.fileList)
 
@@ -137,7 +142,7 @@ class Loader:
         for index in range(batch_size):
             batch = []
             try:
-                matrix = pd.read_csv(self.dir_data + "/" + self.fileList[index], header=None, delimiter=deli)
+                matrix = pd.read_csv(self.dataset_folder + "/" + self.fileList[index], header=None, delimiter=deli)
             except FileNotFoundError:
                 print("Cannot load file " + self.fileList[index])
                 continue
@@ -165,11 +170,9 @@ class Loader:
         :param save: Boolean if save or not.
         """
 
-        folder = "D://dHresko/generated"
-
-        self.save(epoch, batch, corrupted, folder, "corrupted", save)
-        self.save(epoch, batch, real, folder, "real", save)
-        self.save(epoch, batch, fake, folder, "generated", save)
+        self.save(epoch, batch, corrupted, self.generated_folder, "corrupted", save)
+        self.save(epoch, batch, real, self.generated_folder, "real", save)
+        self.save(epoch, batch, fake, self.generated_folder, "generated", save)
 
     def save(self, epoch: int, batch: int, data: tensor, folder: str, file_name: str, save=True):
         """

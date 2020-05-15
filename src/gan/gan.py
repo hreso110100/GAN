@@ -54,7 +54,7 @@ class GAN:
         real_data = []
         corrupted_data = []
 
-        for _, (real, corrupted) in enumerate(self.data_loader.load_batch(batch_size)):
+        for _, (real, corrupted) in enumerate(self.data_loader.load_batch(batch_size, self.percentage)):
             real_data.append(real[0])
             corrupted_data.append(corrupted[0])
 
@@ -62,7 +62,7 @@ class GAN:
 
     def sample_images(self, epoch, batch_size):
         """
-        Continuos saving of data.
+        Continuous saving of data.
 
         :param epoch: Current epoch.
         :param batch_size: Batch size.
@@ -71,16 +71,16 @@ class GAN:
         real, corrupted = self.prepare_sequences()
         fake = self.generator(real)
 
-        real = real.reshape(self.file_rows, self.channels)
         fake = fake.reshape(self.file_rows, self.channels)
+        real = real.reshape(self.file_rows, self.channels)
         corrupted = corrupted.reshape(self.file_rows, self.channels)
 
         self.data_loader.save_data(epoch, batch_size, corrupted, real, fake)
-        avg_distance = self.distance.get_avg_distance(fake, real)
+        # self.heat_map.create_map(corrupted, epoch=epoch)
+        self.heat_map.create_map(data=real, data_type="real", epoch=epoch)
+        self.heat_map.create_map(data=fake, data_type="fake", epoch=epoch)
 
-        self.heat_map.plot(corrupted, epoch=epoch)
-        self.heat_map.plot(real, epoch=epoch)
-        self.heat_map.plot(fake, epoch=epoch)
+        avg_distance = self.distance.get_avg_distance(fake, real)
         self.distance_history.append(({"Average distance": avg_distance / 3}))
 
     def train(self, epochs: int, batch_size=1, sample_interval=50):
@@ -94,6 +94,9 @@ class GAN:
             real_A, real_B = self.prepare_sequences(batch_size)
 
             #  Train Generator
+            for param in self.discriminator.parameters():
+                param.requires_grad_(False)
+
             self.optimizer_g.zero_grad()
 
             fake_B = self.generator(real_A)
@@ -109,6 +112,9 @@ class GAN:
             self.optimizer_g.step()
 
             #  Train Discriminator
+            for param in self.discriminator.parameters():
+                param.requires_grad_(True)
+
             self.optimizer_d.zero_grad()
 
             # Real loss
@@ -130,7 +136,7 @@ class GAN:
 
             if epoch % sample_interval == 0:
                 self.sample_images(epoch, batch_size)
-                self.losses.append({"D": loss_D[0], "G": loss_G[0]})
+                self.losses.append({"D": loss_D, "G": loss_G})
 
     def plot_loss(self):
         pass
