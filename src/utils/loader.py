@@ -8,7 +8,7 @@ from torch import tensor
 class Loader:
 
     def __init__(self, channels=2, window=256, portion=0, days=58):
-        self.dir_data = "/Users/dhresko/Documents/Trajectories/movementLogs"
+        self.dir_data = "D://dHresko/movementLogs"
         self.portion = portion
         self.days = days
         self.fileList = self.get_files()
@@ -165,7 +165,7 @@ class Loader:
         :param save: Boolean if save or not.
         """
 
-        folder = "/Users/dhresko/Documents/Trajectories/generated"
+        folder = "D://dHresko/generated"
 
         self.save(epoch, batch, corrupted, folder, "corrupted", save)
         self.save(epoch, batch, real, folder, "real", save)

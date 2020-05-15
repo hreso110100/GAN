@@ -8,7 +8,7 @@ class HeatMap:
 
     def __init__(self):
         self.loader = Loader(window=2048)
-        self.save_folder = "/Users/dhresko/Documents/Trajectories/heatmaps"
+        self.save_folder = "D://dHresko/heatmaps"
         self.max_lat = 48.7171252
         self.min_lat = 48.7027684
         self.max_lon = 21.2497423
@@ -29,15 +29,14 @@ class HeatMap:
 
         # so we can change type during offset counting
         lat_offset *= 100
-        lat_offset = lat_offset.astype(int) - 1
+        lat_offset = lat_offset - 1
         lon_offset *= 100
-        lon_offset = lon_offset.astype(int) - 1
+        lon_offset = lon_offset - 1
         file[:, 0] = lat_offset
         file[:, 1] = lon_offset
         for tile in file:
-            # print(tile[0].astype(int))
-            x = tile[0].astype(int)
-            y = tile[1].astype(int)
+            x = tile[0].int()
+            y = tile[1].int()
             if x > 99:
                 x = 99
             if y > 99:
