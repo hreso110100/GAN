@@ -1,5 +1,4 @@
 from torch import nn, cat
-from torchsummary import summary
 from torch.nn import Conv2d, Sequential, LeakyReLU, BatchNorm2d, ZeroPad2d
 
 """

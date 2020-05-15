@@ -62,7 +62,7 @@ class GAN:
 
     def sample_images(self, epoch, batch_size):
         """
-        Continuos saving of data.
+        Continuous saving of data.
 
         :param epoch: Current epoch.
         :param batch_size: Batch size.

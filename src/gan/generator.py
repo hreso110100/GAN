@@ -7,7 +7,7 @@ class UNetDown(nn.Module):
         super(UNetDown, self).__init__()
 
         self.model = Sequential(
-            Conv2d(input_size, output_filters, kernel_size=(4, 1), padding=(1, 0), stride=(2, 1), bias=False)
+            Conv2d(input_size, output_filters, kernel_size=(4, 1), padding=(1, 0), stride=(2, 1))
         )
         self.model.add_module("LeakyReLU", LeakyReLU(0.2))
 
@@ -23,7 +23,7 @@ class UNetUp(nn.Module):
         super(UNetUp, self).__init__()
 
         self.model = Sequential(
-            ConvTranspose2d(input_size, output_filters, kernel_size=(4, 1), padding=(1, 0), stride=(2, 1), bias=False),
+            ConvTranspose2d(input_size, output_filters, kernel_size=(4, 1), stride=(2, 1), padding=(1, 0)),
             LeakyReLU(0.2, inplace=True),
             BatchNorm2d(output_filters, momentum=0.8)
         )
@@ -56,9 +56,9 @@ class Generator(nn.Module):
         self.down7 = UNetDown(output_filters * 8, output_filters * 8)
 
         # UpSampling
-        self.up1 = UNetUp(output_filters * 8, output_filters * 8, dropout=0.5)
-        self.up2 = UNetUp(output_filters * 16, output_filters * 8, dropout=0.5)
-        self.up3 = UNetUp(output_filters * 16, output_filters * 8, dropout=0.5)
+        self.up1 = UNetUp(output_filters * 8, output_filters * 8)
+        self.up2 = UNetUp(output_filters * 16, output_filters * 8)
+        self.up3 = UNetUp(output_filters * 16, output_filters * 8)
         self.up4 = UNetUp(output_filters * 16, output_filters * 4)
         self.up5 = UNetUp(output_filters * 8, output_filters * 2)
         self.up6 = UNetUp(output_filters * 4, output_filters)
