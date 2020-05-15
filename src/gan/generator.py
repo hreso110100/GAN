@@ -7,12 +7,13 @@ class UNetDown(nn.Module):
         super(UNetDown, self).__init__()
 
         self.model = Sequential(
-            Conv2d(input_size, output_filters, kernel_size=(4, 1), padding=(1, 0), stride=(2, 1))
+            Conv2d(input_size, output_filters, kernel_size=(4, 1), padding=(1, 0), stride=(2, 1), bias=False)
         )
-        self.model.add_module("LeakyReLU", LeakyReLU(0.2))
 
         if normalize:
             self.model.add_module("BatchNorm2d", BatchNorm2d(output_filters, momentum=0.8))
+
+        self.model.add_module("LeakyReLU", LeakyReLU(0.2))
 
     def forward(self, x):
         return self.model(x)
@@ -23,9 +24,9 @@ class UNetUp(nn.Module):
         super(UNetUp, self).__init__()
 
         self.model = Sequential(
-            ConvTranspose2d(input_size, output_filters, kernel_size=(4, 1), stride=(2, 1), padding=(1, 0)),
-            LeakyReLU(0.2, inplace=True),
-            BatchNorm2d(output_filters, momentum=0.8)
+            ConvTranspose2d(input_size, output_filters, kernel_size=(4, 1), stride=(2, 1), padding=(1, 0), bias=False),
+            BatchNorm2d(output_filters, momentum=0.8),
+            LeakyReLU(0.2, inplace=True)
         )
         if dropout:
             self.model.add_module("Dropout", Dropout(dropout))

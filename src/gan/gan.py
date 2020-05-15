@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 from torch import tensor
 from torch.nn import MSELoss, L1Loss
+from torch.nn.init import normal_, constant_
 from torch.optim import Adam
 
 from src.gan.discriminator import Discriminator
@@ -10,6 +11,15 @@ from src.gan.generator import Generator
 from src.utils.distance import Distance
 from src.utils.heatmaps import HeatMap
 from src.utils.loader import Loader
+
+
+def weights_init_normal(model):
+    classname = model.__class__.__name__
+    if classname.find("Conv") != -1:
+        normal_(model.weight.data, 0.0, 0.02)
+    elif classname.find("BatchNorm2d") != -1:
+        normal_(model.weight.data, 1.0, 0.02)
+        constant_(model.bias.data, 0.0)
 
 
 class GAN:
@@ -32,10 +42,12 @@ class GAN:
         self.d_patch = (1, int(self.file_rows / 2 ** 4), 1)
 
         self.discriminator = Discriminator(self.file_shape)
+        self.discriminator.apply(weights_init_normal)
         self.optimizer_d = Adam(params=self.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
         # Building generator
         self.generator = Generator(self.file_shape)
+        self.generator.apply(weights_init_normal)
         self.optimizer_g = Adam(params=self.generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
         # Building losses
@@ -69,7 +81,7 @@ class GAN:
         """
 
         real, corrupted = self.prepare_sequences()
-        fake = self.generator(real)
+        fake = self.generator(corrupted)
 
         fake = fake.reshape(self.file_rows, self.channels)
         real = real.reshape(self.file_rows, self.channels)
@@ -77,7 +89,7 @@ class GAN:
 
         self.data_loader.save_data(epoch, batch_size, corrupted, real, fake)
         # self.heat_map.create_map(corrupted, epoch=epoch)
-        self.heat_map.create_map(data=real, data_type="real", epoch=epoch)
+        # self.heat_map.create_map(data=real, data_type="real", epoch=epoch)
         self.heat_map.create_map(data=fake, data_type="fake", epoch=epoch)
 
         avg_distance = self.distance.get_avg_distance(fake, real)
@@ -99,11 +111,11 @@ class GAN:
 
             self.optimizer_g.zero_grad()
 
-            fake_B = self.generator(real_A)
-            pred_fake = self.discriminator(fake_B, real_A)
+            fake_A = self.generator(real_B)
+            pred_fake = self.discriminator(fake_A, real_A)
 
             loss_mse = self.loss_mse(pred_fake, valid)
-            loss_l1 = self.loss_l1(fake_B, real_B)
+            loss_l1 = self.loss_l1(fake_A, real_B)
 
             # Total loss (100 is weight of L1 loss)
             loss_G = loss_mse + (100 * loss_l1)
@@ -118,11 +130,11 @@ class GAN:
             self.optimizer_d.zero_grad()
 
             # Real loss
-            pred_real = self.discriminator(real_B, real_A)
+            pred_real = self.discriminator(real_A, real_B)
             loss_real = self.loss_mse(pred_real, valid)
 
             # Fake loss
-            pred_fake = self.discriminator(fake_B.detach(), real_A)
+            pred_fake = self.discriminator(fake_A.detach(), real_A)
             loss_fake = self.loss_mse(pred_fake, fake)
 
             # Total loss
