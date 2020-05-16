@@ -1,5 +1,5 @@
 from torch import nn, cat
-from torch.nn import Conv2d, Sequential, LeakyReLU, BatchNorm2d, ZeroPad2d
+from torch.nn import Conv2d, Sequential, LeakyReLU, ZeroPad2d, BatchNorm2d
 
 """
 PatchGan implementation

@@ -42,12 +42,12 @@ class GAN:
         self.d_patch = (1, int(self.file_rows / 2 ** 4), 1)
 
         self.discriminator = Discriminator(self.file_shape)
-        self.discriminator.apply(weights_init_normal)
+        # self.discriminator.apply(weights_init_normal)
         self.optimizer_d = Adam(params=self.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
         # Building generator
         self.generator = Generator(self.file_shape)
-        self.generator.apply(weights_init_normal)
+        # self.generator.apply(weights_init_normal)
         self.optimizer_g = Adam(params=self.generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
         # Building losses
@@ -105,23 +105,7 @@ class GAN:
         for epoch in range(epochs):
             real_A, real_B = self.prepare_sequences(batch_size)
 
-            #  Train Generator
-            for param in self.discriminator.parameters():
-                param.requires_grad_(False)
-
-            self.optimizer_g.zero_grad()
-
             fake_A = self.generator(real_B)
-            pred_fake = self.discriminator(fake_A, real_A)
-
-            loss_mse = self.loss_mse(pred_fake, valid)
-            loss_l1 = self.loss_l1(fake_A, real_B)
-
-            # Total loss (100 is weight of L1 loss)
-            loss_G = loss_mse + (100 * loss_l1)
-
-            loss_G.backward()
-            self.optimizer_g.step()
 
             #  Train Discriminator
             for param in self.discriminator.parameters():
@@ -134,7 +118,7 @@ class GAN:
             loss_real = self.loss_mse(pred_real, valid)
 
             # Fake loss
-            pred_fake = self.discriminator(fake_A.detach(), real_A)
+            pred_fake = self.discriminator(fake_A.detach(), real_B)
             loss_fake = self.loss_mse(pred_fake, fake)
 
             # Total loss
@@ -142,6 +126,23 @@ class GAN:
 
             loss_D.backward()
             self.optimizer_d.step()
+
+            #  Train Generator
+            for param in self.discriminator.parameters():
+                param.requires_grad_(False)
+
+            self.optimizer_g.zero_grad()
+
+            pred_fake = self.discriminator(fake_A, real_B)
+
+            loss_mse = self.loss_mse(pred_fake, valid)
+            loss_l1 = self.loss_l1(fake_A, real_A)
+
+            # Total loss (100 is weight of L1 loss)
+            loss_G = loss_mse + (100 * loss_l1)
+
+            loss_G.backward()
+            self.optimizer_g.step()
 
             elapsed_time = datetime.datetime.now() - start_time
             print(f"[Epoch {epoch}/{epochs}] [D loss: {loss_D}] [G loss: {loss_G}] time: {elapsed_time}")

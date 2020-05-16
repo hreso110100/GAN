@@ -22,7 +22,7 @@ class Loader:
         self.channels = channels
         self.shape = (self.channels, self.window, 1)
 
-    def get_files(self) -> list:
+    def get_files(self) -> np.ndarray:
         """
         Loading files in dataset dir.
 
@@ -32,7 +32,15 @@ class Loader:
         files = np.sort(os.listdir(self.dataset_folder))
 
         if self.portion > 0:
-            files = files[:self.days * self.portion]
+            files = files[:58 * self.portion]
+
+            if self.days != 58:
+                namelist = []
+                for i in range(self.portion):
+                    for suff in range(self.days):
+                        namelist.append(files[58 * i + suff])
+
+                return np.asarray(namelist)
 
         return files
 
