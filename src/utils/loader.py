@@ -123,15 +123,16 @@ class Loader:
         corrupt = []
         remove_ratio = int(self.window * 0.95)
         # Choosing N numbers of random rows to be deleted, based on remove_ratio
-        remove_indexes = np.random.choice(self.window, remove_ratio, replace=False)
 
         for file in files:
+            file = file.reshape(2048, 1, 2)
             file_copy = np.copy(file)
+            remove_indexes = np.random.choice(self.window, remove_ratio, replace=False)
 
-            for remove_index in remove_indexes:  # remove random rows in given file
-                file_copy[0, remove_index, 0] = 0
-                file_copy[1, remove_index, 0] = 0
-            corrupt.append(file_copy)
+            for index in range(remove_ratio):  # remove random rows in given file
+                file_copy[remove_indexes[index], 0, 0] = 0
+                file_copy[remove_indexes[index], 0, 1] = 0
+            corrupt.append(file_copy.reshape(2, 2048, 1))
 
         return corrupt
 

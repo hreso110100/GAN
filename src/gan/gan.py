@@ -1,9 +1,9 @@
 import datetime
 
 import numpy as np
+import torch
 from torch import tensor
 from torch.nn import MSELoss, L1Loss
-from torch.nn.init import normal_, constant_
 from torch.optim import Adam
 
 from src.gan.discriminator import Discriminator
@@ -16,10 +16,12 @@ from src.utils.loader import Loader
 def weights_init_normal(model):
     classname = model.__class__.__name__
     if classname.find("Conv") != -1:
-        normal_(model.weight.data, 0.0, 0.02)
-    elif classname.find("BatchNorm2d") != -1:
-        normal_(model.weight.data, 1.0, 0.02)
-        constant_(model.bias.data, 0.0)
+        torch.nn.init.xavier_uniform_(model.weight)
+        if model.bias is not None:
+            torch.nn.init.zeros_(model.bias)
+    # elif classname.find("BatchNorm2d") != -1:
+    #     normal_(model.weight.data, 0, 1)
+    #     constant_(model.bias.data, 0.0)
 
 
 class GAN:
@@ -38,21 +40,21 @@ class GAN:
         self.distance_history = []
         self.losses = []
 
+        # Building losses
+        self.loss_mse = MSELoss()
+        self.loss_l1 = L1Loss()
+
         # Building discriminator
-        self.d_patch = (1, int(self.file_rows / 2 ** 4), 1)
+        self.d_patch = (1, int(self.file_rows // 2 ** 4), 1)
 
         self.discriminator = Discriminator(self.file_shape)
-        # self.discriminator.apply(weights_init_normal)
+        self.discriminator.apply(weights_init_normal)
         self.optimizer_d = Adam(params=self.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
         # Building generator
         self.generator = Generator(self.file_shape)
-        # self.generator.apply(weights_init_normal)
+        self.generator.apply(weights_init_normal)
         self.optimizer_g = Adam(params=self.generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-
-        # Building losses
-        self.loss_mse = MSELoss()
-        self.loss_l1 = L1Loss()
 
     def prepare_sequences(self, batch_size=1) -> tuple:
         """
@@ -88,8 +90,8 @@ class GAN:
         corrupted = corrupted.reshape(self.file_rows, self.channels)
 
         self.data_loader.save_data(epoch, batch_size, corrupted, real, fake)
-        # self.heat_map.create_map(corrupted, epoch=epoch)
-        # self.heat_map.create_map(data=real, data_type="real", epoch=epoch)
+        self.heat_map.create_map(data=corrupted, data_type="corrupted", epoch=epoch)
+        self.heat_map.create_map(data=real, data_type="real", epoch=epoch)
         self.heat_map.create_map(data=fake, data_type="fake", epoch=epoch)
 
         avg_distance = self.distance.get_avg_distance(fake, real)
