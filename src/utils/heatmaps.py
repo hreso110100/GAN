@@ -21,8 +21,6 @@ class HeatMap:
     def create_map(self, data: tensor, data_type: str, epoch: int, save=True):
         hmap = np.zeros((100, 100))
 
-        data = data.detach().numpy()
-
         data[:, 0] = data[:, 0] / 30 + 48.7
         data[:, 1] = data[:, 1] / 30 + 21.22
         # calculate "percentage" - the partition on 100x100 grid

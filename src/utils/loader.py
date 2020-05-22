@@ -61,7 +61,7 @@ class Loader:
         # Selecting random data files
         chosen_files = np.random.choice(self.number_of_files, int(batch_size * (percentage / 100)), replace=False)
 
-        for index, chosen_index in enumerate(chosen_files):
+        for _, chosen_index in enumerate(chosen_files):
             batch = []
 
             try:
@@ -78,7 +78,7 @@ class Loader:
 
             noise = self.add_corruption(batch)
 
-            yield batch, noise
+            yield np.array(batch), np.array(noise)
 
     def scale_data(self, data) -> np.array:
         """
