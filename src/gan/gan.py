@@ -19,9 +19,9 @@ def weights_init_normal(model):
         torch.nn.init.xavier_uniform_(model.weight)
         if model.bias is not None:
             torch.nn.init.zeros_(model.bias)
-    # elif classname.find("BatchNorm2d") != -1:
-    #     normal_(model.weight.data, 0, 1)
-    #     constant_(model.bias.data, 0.0)
+    elif classname.find("BatchNorm2d") != -1:
+        torch.nn.init.normal_(model.weight.data, 1.0, 0.02)
+        torch.nn.init.constant_(model.bias.data, 0.0)
 
 
 class GAN:
@@ -85,9 +85,9 @@ class GAN:
         real, corrupted = self.prepare_sequences()
         fake = self.generator(corrupted)
 
-        fake = fake.reshape(self.file_rows, self.channels)
-        real = real.reshape(self.file_rows, self.channels)
-        corrupted = corrupted.reshape(self.file_rows, self.channels)
+        fake = fake.detach().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
+        real = real.detach().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
+        corrupted = corrupted.detach().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
 
         self.data_loader.save_data(epoch, batch_size, corrupted, real, fake)
         self.heat_map.create_map(data=corrupted, data_type="corrupted", epoch=epoch)
@@ -106,8 +106,24 @@ class GAN:
 
         for epoch in range(epochs):
             real_A, real_B = self.prepare_sequences(batch_size)
-
             fake_A = self.generator(real_B)
+
+            #  Train Generator
+            for param in self.discriminator.parameters():
+                param.requires_grad_(False)
+
+            self.optimizer_g.zero_grad()
+
+            pred_fake = self.discriminator(fake_A, real_B)
+
+            loss_mse = self.loss_mse(pred_fake, valid)
+            loss_l1 = self.loss_l1(fake_A, real_A)
+
+            # Total loss (100 is weight of L1 loss)
+            loss_G = loss_mse + (100 * loss_l1)
+
+            loss_G.backward()
+            self.optimizer_g.step()
 
             #  Train Discriminator
             for param in self.discriminator.parameters():
@@ -128,23 +144,6 @@ class GAN:
 
             loss_D.backward()
             self.optimizer_d.step()
-
-            #  Train Generator
-            for param in self.discriminator.parameters():
-                param.requires_grad_(False)
-
-            self.optimizer_g.zero_grad()
-
-            pred_fake = self.discriminator(fake_A, real_B)
-
-            loss_mse = self.loss_mse(pred_fake, valid)
-            loss_l1 = self.loss_l1(fake_A, real_A)
-
-            # Total loss (100 is weight of L1 loss)
-            loss_G = loss_mse + (100 * loss_l1)
-
-            loss_G.backward()
-            self.optimizer_g.step()
 
             elapsed_time = datetime.datetime.now() - start_time
             print(f"[Epoch {epoch}/{epochs}] [D loss: {loss_D}] [G loss: {loss_G}] time: {elapsed_time}")

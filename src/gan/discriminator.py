@@ -25,7 +25,7 @@ class Discriminator(nn.Module):
                   LeakyReLU(0.2, inplace=True)]
 
         if normalization:
-            layers.append(BatchNorm2d(num_features=out_filters, momentum=0.8, eps=1e-3))
+            layers.append(BatchNorm2d(num_features=out_filters, momentum=0.8))
 
         return layers
 

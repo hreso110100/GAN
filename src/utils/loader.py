@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from torch import tensor
+from scipy.ndimage.interpolation import rotate
 
 
 class Loader:
@@ -65,7 +66,7 @@ class Loader:
             batch = []
 
             try:
-                loaded_data = pd.read_csv(self.dataset_folder + "/" + self.fileList[chosen_index], header=None)
+                loaded_data = pd.read_csv(self.dataset_folder + "/" + self.fileList[0], header=None)
             except FileNotFoundError:
                 print(f"LOGGER: Cannot load given file {self.fileList[chosen_index]}.")
                 continue
@@ -73,6 +74,7 @@ class Loader:
             loaded_data = self.drop_timestamp(loaded_data)
             loaded_data = self.scale_data(loaded_data)
 
+            loaded_data = loaded_data.swapaxes(0, 1)
             loaded_data = loaded_data.reshape(self.shape)
             batch.append(loaded_data)
 
@@ -125,14 +127,13 @@ class Loader:
         # Choosing N numbers of random rows to be deleted, based on remove_ratio
 
         for file in files:
-            file = file.reshape(2048, 1, 2)
             file_copy = np.copy(file)
             remove_indexes = np.random.choice(self.window, remove_ratio, replace=False)
 
             for index in range(remove_ratio):  # remove random rows in given file
-                file_copy[remove_indexes[index], 0, 0] = 0
-                file_copy[remove_indexes[index], 0, 1] = 0
-            corrupt.append(file_copy.reshape(2, 2048, 1))
+                file_copy[0, remove_indexes[index], 0] = 0
+                file_copy[1, remove_indexes[index], 0] = 0
+            corrupt.append(file_copy)
 
         return corrupt
 
@@ -196,7 +197,6 @@ class Loader:
         """
 
         df = pd.DataFrame()
-        data = data.detach()
 
         df[0] = data[:, 0] / 30 + 48.7
         df[1] = data[:, 1] / 30 + 21.22
