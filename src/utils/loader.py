@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from torch import tensor
+from scipy.ndimage.interpolation import rotate
 
 
 class Loader:
@@ -61,7 +62,7 @@ class Loader:
         # Selecting random data files
         chosen_files = np.random.choice(self.number_of_files, int(batch_size * (percentage / 100)), replace=False)
 
-        for index, chosen_index in enumerate(chosen_files):
+        for _, chosen_index in enumerate(chosen_files):
             batch = []
 
             try:
@@ -73,12 +74,13 @@ class Loader:
             loaded_data = self.drop_timestamp(loaded_data)
             loaded_data = self.scale_data(loaded_data)
 
+            loaded_data = loaded_data.swapaxes(0, 1)
             loaded_data = loaded_data.reshape(self.shape)
             batch.append(loaded_data)
 
             noise = self.add_corruption(batch)
 
-            yield batch, noise
+            yield np.array(batch), np.array(noise)
 
     def scale_data(self, data) -> np.array:
         """
@@ -123,14 +125,14 @@ class Loader:
         corrupt = []
         remove_ratio = int(self.window * 0.95)
         # Choosing N numbers of random rows to be deleted, based on remove_ratio
-        remove_indexes = np.random.choice(self.window, remove_ratio, replace=False)
 
         for file in files:
             file_copy = np.copy(file)
+            remove_indexes = np.random.choice(self.window, remove_ratio, replace=False)
 
-            for remove_index in remove_indexes:  # remove random rows in given file
-                file_copy[0, remove_index, 0] = 0
-                file_copy[1, remove_index, 0] = 0
+            for index in range(remove_ratio):  # remove random rows in given file
+                file_copy[0, remove_indexes[index], 0] = 0
+                file_copy[1, remove_indexes[index], 0] = 0
             corrupt.append(file_copy)
 
         return corrupt
@@ -195,7 +197,6 @@ class Loader:
         """
 
         df = pd.DataFrame()
-        data = data.detach()
 
         df[0] = data[:, 0] / 30 + 48.7
         df[1] = data[:, 1] / 30 + 21.22

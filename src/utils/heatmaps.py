@@ -29,15 +29,15 @@ class HeatMap:
 
         # so we can change type during offset counting
         lat_offset *= 100
-        lat_offset = lat_offset.int() - 1
+        lat_offset = lat_offset - 1
         lon_offset *= 100
-        lon_offset = lon_offset.int() - 1
+        lon_offset = lon_offset - 1
         data[:, 0] = lat_offset
         data[:, 1] = lon_offset
 
         for tile in data:
-            x = tile[0].int()
-            y = tile[1].int()
+            x = int(tile[0])
+            y = int(tile[1])
             if x > 99:
                 x = 99
             if y > 99:
