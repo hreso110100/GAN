@@ -89,9 +89,9 @@ class GAN:
         real, corrupted = self.prepare_sequences()
         fake = self.generator(corrupted)
 
-        fake = fake.detach().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
-        real = real.detach().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
-        corrupted = corrupted.detach().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
+        fake = fake.detach().cpu().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
+        real = real.detach().cpu().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
+        corrupted = corrupted.detach().cpu().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
 
         self.data_loader.save_data(epoch, batch_size, corrupted, real, fake)
         self.heat_map.create_map(data_list=[real, corrupted, fake], epoch=epoch)
@@ -118,8 +118,8 @@ class GAN:
 
             pred_fake = self.discriminator(fake_A, real_B)
 
-            loss_mse = self.loss_mse(pred_fake, valid)
-            loss_l1 = self.loss_l1(fake_A, real_A)
+            loss_mse = self.loss_mse(pred_fake, valid).double()
+            loss_l1 = self.loss_l1(fake_A, real_A).double()
 
             # Total loss (100 is weight of L1 loss)
             loss_G = loss_mse + (100 * loss_l1)
