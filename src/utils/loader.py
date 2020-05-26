@@ -66,7 +66,7 @@ class Loader:
             batch = []
 
             try:
-                loaded_data = pd.read_csv(self.dataset_folder + "/" + self.fileList[0], header=None)
+                loaded_data = pd.read_csv(self.dataset_folder + "/" + self.fileList[chosen_index], header=None)
             except FileNotFoundError:
                 print(f"LOGGER: Cannot load given file {self.fileList[chosen_index]}.")
                 continue

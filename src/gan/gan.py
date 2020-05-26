@@ -19,9 +19,6 @@ def weights_init_normal(model):
         torch.nn.init.xavier_uniform_(model.weight)
         if model.bias is not None:
             torch.nn.init.zeros_(model.bias)
-    elif classname.find("BatchNorm2d") != -1:
-        torch.nn.init.normal_(model.weight.data, 1.0, 0.02)
-        torch.nn.init.constant_(model.bias.data, 0.0)
 
 
 class GAN:
