@@ -13,7 +13,12 @@ from src.utils.heatmaps import HeatMap
 from src.utils.loader import Loader
 
 
-def weights_init_normal(model):
+def weights_init(model):
+    """
+    Init weights for CNN layers.
+
+    :param model: Model to be initialized
+    """
     classname = model.__class__.__name__
     if classname.find("Conv") != -1:
         torch.nn.init.xavier_uniform_(model.weight)
@@ -46,13 +51,13 @@ class GAN:
         # Building discriminator
         self.d_patch = (1, int(self.file_rows // 2 ** 4), 1)
 
-        self.discriminator = Discriminator(self.file_shape)
-        self.discriminator.apply(weights_init_normal)
+        self.discriminator = Discriminator(self.file_shape).to(self.device)
+        self.discriminator.apply(weights_init)
         self.optimizer_d = Adam(params=self.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
         # Building generator
-        self.generator = Generator(self.file_shape)
-        self.generator.apply(weights_init_normal)
+        self.generator = Generator(self.file_shape).to(self.device)
+        self.generator.apply(weights_init)
         self.optimizer_g = Adam(params=self.generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
     def prepare_sequences(self, batch_size=1) -> tuple:
@@ -92,9 +97,9 @@ class GAN:
         self.heat_map.create_map(data_list=[real, corrupted, fake], epoch=epoch)
 
         avg_distance = self.distance.get_avg_distance(fake, real)
-        self.distance_history.append(({"Average distance": avg_distance / 3}))
+        self.distance_history.append(({"Average distance": avg_distance}))
 
-    def train(self, epochs: int, batch_size=1, sample_interval=50):
+    def train(self, epochs: int, batch_size: int, sample_interval: int):
         start_time = datetime.datetime.now()
 
         # Adversarial ground truths
