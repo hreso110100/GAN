@@ -4,12 +4,11 @@ import numpy as np
 import pandas as pd
 import yaml
 from torch import tensor
-from scipy.ndimage.interpolation import rotate
 
 
 class Loader:
 
-    def __init__(self, channels=2, window=256, portion=0, days=58):
+    def __init__(self, shape: tuple, portion=0, days=58):
         with open(f"../src/config/model_config.yml", 'r') as file:
             self.config = yaml.load(file, Loader=yaml.FullLoader)
 
@@ -19,9 +18,7 @@ class Loader:
         self.days = days
         self.fileList = self.get_files()
         self.number_of_files = len(self.fileList)
-        self.window = window
-        self.channels = channels
-        self.shape = (self.channels, self.window, 1)
+        self.shape = shape
 
     def get_files(self) -> np.ndarray:
         """
@@ -109,7 +106,7 @@ class Loader:
 
         data = data.drop(data.columns[0], axis=1)
         data = data.values
-        data = data[:self.window, :]
+        data = data[:self.shape[1], :]
 
         return data
 
@@ -123,12 +120,12 @@ class Loader:
         """
 
         corrupt = []
-        remove_ratio = int(self.window * 0.95)
+        remove_ratio = int(self.shape[1] * 0.95)
         # Choosing N numbers of random rows to be deleted, based on remove_ratio
 
         for file in files:
             file_copy = np.copy(file)
-            remove_indexes = np.random.choice(self.window, remove_ratio, replace=False)
+            remove_indexes = np.random.choice(self.shape[1], remove_ratio, replace=False)
 
             for index in range(remove_ratio):  # remove random rows in given file
                 file_copy[0, remove_indexes[index], 0] = 0
@@ -136,37 +133,6 @@ class Loader:
             corrupt.append(file_copy)
 
         return corrupt
-
-    def load_generated(self, batch_size, cols, folder="./movementLogs", deli="\t"):
-        """
-        load trajectories from given folder
-        window represents length of the loaded data, how many logs should be contained throughout one sample
-        """
-
-        self.dataset_folder = folder
-        self.fileList = self.get_files()
-        self.number_of_files = len(self.fileList)
-
-        shape = (self.window, cols, self.channels)
-
-        for index in range(batch_size):
-            batch = []
-            try:
-                matrix = pd.read_csv(self.dataset_folder + "/" + self.fileList[index], header=None, delimiter=deli)
-            except FileNotFoundError:
-                print("Cannot load file " + self.fileList[index])
-                continue
-            matrix = matrix.drop(matrix.columns[0], axis=0)
-            #            matrix = matrix.drop(matrix.columns[3], axis=1)
-            null = self.drop_timestamp(matrix)
-            # scale the values according to the lat/lon intervals
-
-            null = self.scale_data(matrix)
-
-            matrix2 = matrix.reshape(shape)
-            batch.append(matrix2)
-            # print(np.array(batch))
-            yield np.array(batch), matrix
 
     def save_data(self, epoch: int, batch: int, corrupted: tensor, real: tensor, fake: tensor, save=True):
         """

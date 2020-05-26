@@ -1,4 +1,3 @@
-import torch
 from torch import nn, cat
 from torch.nn import Upsample, Conv2d, Sequential, LeakyReLU, Dropout, Sigmoid, ZeroPad2d, ReLU, BatchNorm2d
 

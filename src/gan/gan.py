@@ -13,7 +13,12 @@ from src.utils.heatmaps import HeatMap
 from src.utils.loader import Loader
 
 
-def weights_init_normal(model):
+def weights_init(model):
+    """
+    Init weights for CNN layers.
+
+    :param model: Model to be initialized
+    """
     classname = model.__class__.__name__
     if classname.find("Conv") != -1:
         torch.nn.init.xavier_uniform_(model.weight)
@@ -24,15 +29,17 @@ def weights_init_normal(model):
 class GAN:
 
     def __init__(self):
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
         self.percentage = 100
         self.file_rows = 2048
         self.file_cols = 1
-        self.channels = 2  # 3 if bearing, 2 if just lat/lon
+        self.channels = 2
         self.file_shape = (self.channels, self.file_rows, self.file_cols)
 
         self.heat_map = HeatMap()
         self.distance = Distance(window=self.file_rows)
-        self.data_loader = Loader(window=self.file_rows, portion=1000, days=3)
+        self.data_loader = Loader(shape=self.file_shape, portion=1000, days=3)
 
         self.distance_history = []
         self.losses = []
@@ -44,13 +51,13 @@ class GAN:
         # Building discriminator
         self.d_patch = (1, int(self.file_rows // 2 ** 4), 1)
 
-        self.discriminator = Discriminator(self.file_shape)
-        self.discriminator.apply(weights_init_normal)
+        self.discriminator = Discriminator(self.file_shape).to(self.device)
+        self.discriminator.apply(weights_init)
         self.optimizer_d = Adam(params=self.discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
         # Building generator
-        self.generator = Generator(self.file_shape)
-        self.generator.apply(weights_init_normal)
+        self.generator = Generator(self.file_shape).to(self.device)
+        self.generator.apply(weights_init)
         self.optimizer_g = Adam(params=self.generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
     def prepare_sequences(self, batch_size=1) -> tuple:
@@ -69,7 +76,7 @@ class GAN:
             real_data.append(real[0])
             corrupted_data.append(corrupted[0])
 
-        return tensor(real_data).float(), tensor(corrupted_data).float()
+        return tensor(real_data, device=self.device).float(), tensor(corrupted_data, device=self.device).float()
 
     def sample_images(self, epoch, batch_size):
         """
@@ -87,19 +94,17 @@ class GAN:
         corrupted = corrupted.detach().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
 
         self.data_loader.save_data(epoch, batch_size, corrupted, real, fake)
-        self.heat_map.create_map(data=corrupted, data_type="corrupted", epoch=epoch)
-        self.heat_map.create_map(data=real, data_type="real", epoch=epoch)
-        self.heat_map.create_map(data=fake, data_type="fake", epoch=epoch)
+        self.heat_map.create_map(data_list=[real, corrupted, fake], epoch=epoch)
 
         avg_distance = self.distance.get_avg_distance(fake, real)
-        self.distance_history.append(({"Average distance": avg_distance / 3}))
+        self.distance_history.append(({"Average distance": avg_distance}))
 
-    def train(self, epochs: int, batch_size=1, sample_interval=50):
+    def train(self, epochs: int, batch_size: int, sample_interval: int):
         start_time = datetime.datetime.now()
 
         # Adversarial ground truths
-        valid = tensor(np.ones((batch_size,) + self.d_patch), requires_grad=False)
-        fake = tensor(np.zeros((batch_size,) + self.d_patch), requires_grad=False)
+        valid = tensor(np.ones((batch_size,) + self.d_patch), requires_grad=False, device=self.device)
+        fake = tensor(np.zeros((batch_size,) + self.d_patch), requires_grad=False, device=self.device)
 
         for epoch in range(epochs):
             real_A, real_B = self.prepare_sequences(batch_size)
