@@ -1,4 +1,5 @@
 folders:
   dataset: "/Users/dhresko/Documents/Trajectories/movementLogs"
   generated: "/Users/dhresko/Documents/Trajectories/generated"
+  generated_samples: "/Users/dhresko/Documents/Trajectories/generated/samples"
   heatmaps: "/Users/dhresko/Documents/Trajectories/heatmaps"

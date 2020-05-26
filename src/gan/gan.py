@@ -1,7 +1,10 @@
 import datetime
+import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import yaml
 from torch import tensor
 from torch.nn import MSELoss, L1Loss
 from torch.optim import Adam
@@ -30,6 +33,11 @@ class GAN:
 
     def __init__(self):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        with open(f"../src/config/model_config.yml", 'r') as file:
+            self.config = yaml.load(file, Loader=yaml.FullLoader)
+
+        self.samples_folder = self.config["folders"]["generated_samples"]
 
         self.percentage = 100
         self.file_rows = 2048
@@ -148,26 +156,55 @@ class GAN:
             self.optimizer_d.step()
 
             elapsed_time = datetime.datetime.now() - start_time
+            self.losses.append({"D": loss_D, "G": loss_G})
             print(f"[Epoch {epoch}/{epochs}] [D loss: {loss_D}] [G loss: {loss_G}] time: {elapsed_time}")
 
             if epoch % sample_interval == 0:
                 self.sample_images(epoch, batch_size)
-                self.losses.append({"D": loss_D, "G": loss_G})
 
-    def plot_loss(self):
-        pass
+        self.plot_loss(self.losses)
+        self.generate_samples(100)
+        self.save_models()
+
+    def plot_loss(self, loss_list: list):
+        """
+        Plot losses of discriminator and generator.
+        """
+
+        plt.figure(figsize=(12, 5))
+        loss_G = []
+        loss_D = []
+
+        for loss in loss_list:
+            loss_G.append(loss["G"].detach().numpy())
+            loss_D.append(loss["D"].detach().numpy())
+
+        plt.plot(loss_G, label="Generator")
+        plt.plot(loss_D, label="Discriminator")
+
+        plt.title("Discriminator and generator loss")
+        plt.ylabel("loss")
+        plt.xlabel("epochs")
+        plt.show()
+
+    def generate_samples(self, samples: int):
+        """
+        Generate N number of fake trajectories and store them on disc.
+
+        :param samples: Number of samples to generate
+        """
+        for i in range(samples):
+            print(f"LOGGER: Generating sample {i+1}/{samples}.")
+            real, corrupted = self.prepare_sequences(1)
+            fake = self.generator(corrupted)
+
+            fake = fake.detach().cpu().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
+            real = real.detach().cpu().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
+            corrupted = corrupted.detach().cpu().numpy().swapaxes(1, 2).reshape(self.file_rows, self.channels)
+
+            self.heat_map.create_map(data_list=[real, corrupted, fake], epoch=i, save_location=self.samples_folder)
 
     def save_models(self):
-        pass
-
-    # def plot_losses(self, history):
-    #     hist = pd.DataFrame(history)
-    #     plt.figure(figsize=(10, 5))
-    #
-    #     for colnm in hist.columns:
-    #         plt.plot(hist[colnm], label=colnm)
-    #
-    #     plt.legend()
-    #     plt.ylabel("loss")
-    #     plt.xlabel("epochs")
-    #     plt.show()
+        # TODO
+        if not os.path.exists('../models'):
+            os.makedirs('../models')

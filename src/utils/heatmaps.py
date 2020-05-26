@@ -17,7 +17,7 @@ class HeatMap:
         self.lat_dist = (self.max_lat - self.min_lat)  # 0.015
         self.lon_dist = (self.max_lon - self.min_lon)  # 0.021
 
-    def create_map(self, data_list: list, epoch: int, save=True):
+    def create_map(self, data_list: list, epoch: int, save=True, save_location=""):
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
         axes = (ax1, ax2, ax3)
 
@@ -30,7 +30,6 @@ class HeatMap:
             lat_offset = (data[:, 0] - self.min_lat) / self.lat_dist
             lon_offset = (data[:, 1] - self.min_lon) / self.lon_dist
 
-            # so we can change type during offset counting
             lat_offset *= 100
             lat_offset = lat_offset - 1
             lon_offset *= 100
@@ -65,6 +64,9 @@ class HeatMap:
             elif index == 2:
                 axes[index].set_title('Generated')
 
-        if save:
-            plt.savefig(f"{self.save_folder}/heatmap_{epoch}")
-        plt.show()
+        if save_location == "":
+            if save:
+                plt.savefig(f"{self.save_folder}/heatmap_{epoch}")
+            plt.show()
+        else:
+            plt.savefig(f"{save_location}/heatmap_{epoch}")
