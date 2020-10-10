@@ -13,7 +13,11 @@ class Loader:
             self.config = yaml.load(file, Loader=yaml.FullLoader)
 
         self.dataset_folder = self.config["folders"]["dataset"]
-        self.generated_folder = self.config["folders"]["generated"]
+        self.generated_folder = self.config["folders"]["test_raw"]
+
+        if not os.path.exists(self.generated_folder):
+            os.makedirs(self.generated_folder)
+
         self.portion = portion
         self.days = days
         self.fileList = self.get_files()

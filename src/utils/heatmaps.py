@@ -1,3 +1,6 @@
+from skimage.metrics import structural_similarity as ssim
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 import yaml
@@ -9,7 +12,11 @@ class HeatMap:
         with open(f"../src/config/model_config.yml", 'r') as file:
             self.config = yaml.load(file, Loader=yaml.FullLoader)
 
-        self.save_folder = self.config["folders"]["heatmaps"]
+        self.save_folder = self.config["folders"]["training_logs"]
+
+        if not os.path.exists(self.save_folder):
+            os.makedirs(self.save_folder)
+
         self.max_lat = 48.7171252
         self.min_lat = 48.7027684
         self.max_lon = 21.2497423
@@ -18,8 +25,14 @@ class HeatMap:
         self.lon_dist = (self.max_lon - self.min_lon)  # 0.021
 
     def create_map(self, data_list: list, epoch: int, save=True, save_location=""):
+
+        def mse(x, y):
+            return np.linalg.norm(x - y)
+
         fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+        fig.suptitle(f"Results after {epoch} epochs", fontsize=16)
         axes = (ax1, ax2, ax3)
+        hmap_real = None
 
         for index, data in enumerate(data_list):
             hmap = np.zeros((100, 100))
@@ -55,14 +68,23 @@ class HeatMap:
                 row[:] = [x if x < 50 else 50 for x in row]  # replacing high density to better read the map
 
             axes[index].imshow(hmap, cmap='hot', interpolation='nearest')
-            axes[index].set_axis_off()
 
             if index == 0:
                 axes[index].set_title('Real')
+                axes[index].set_xlabel("MSE: 0.00 SSIM : 1.00")
+                hmap_real = hmap
             elif index == 1:
                 axes[index].set_title('Corruption')
+                mse_corrupted = mse(hmap_real, hmap)
+                ssim_corrupted = ssim(hmap_real, hmap, data_range=hmap.max() - hmap.min())
+
+                axes[index].set_xlabel(f"MSE: {mse_corrupted:.2f} SSIM : {ssim_corrupted:.2f}")
             elif index == 2:
                 axes[index].set_title('Generated')
+                mse_generated = mse(hmap_real, hmap)
+                ssim_generated = ssim(hmap_real, hmap, data_range=hmap.max() - hmap.min())
+
+                axes[index].set_xlabel(f"MSE: {mse_generated:.2f} SSIM : {ssim_generated:.2f}")
 
         if save_location == "":
             if save:

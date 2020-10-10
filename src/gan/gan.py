@@ -37,7 +37,10 @@ class GAN:
         with open(f"../src/config/model_config.yml", 'r') as file:
             self.config = yaml.load(file, Loader=yaml.FullLoader)
 
-        self.samples_folder = self.config["folders"]["generated_samples"]
+        self.samples_folder = self.config["folders"]["test_heatmaps"]
+
+        if not os.path.exists(self.samples_folder):
+            os.makedirs(self.samples_folder)
 
         self.percentage = 100
         self.file_rows = 2048
