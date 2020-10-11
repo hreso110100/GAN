@@ -179,6 +179,10 @@ class GAN:
         loss_D = []
 
         for loss in loss_list:
+            if self.device == "cuda":
+                loss_G.append(loss["G"].cpu().detach().numpy())
+                loss_D.append(loss["D"].cpu().detach().numpy())
+
             loss_G.append(loss["G"].detach().numpy())
             loss_D.append(loss["D"].detach().numpy())
 
@@ -197,7 +201,7 @@ class GAN:
         :param samples: Number of samples to generate
         """
         for i in range(samples):
-            print(f"LOGGER: Generating sample {i+1}/{samples}.")
+            print(f"LOGGER: Generating sample {i + 1}/{samples}.")
             real, corrupted = self.prepare_sequences(1)
             fake = self.generator(corrupted)
 
