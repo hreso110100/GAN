@@ -65,7 +65,7 @@ class HeatMap:
                 hmap[x, y] += 1
 
             for row in hmap:
-                row[:] = [x if x < 50 else 50 for x in row]  # replacing high density to better read the map
+                row[:] = [x if x < 10 else 10 for x in row]  # replacing high density to better read the map
 
             axes[index].imshow(hmap, cmap='hot', interpolation='nearest')
 

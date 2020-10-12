@@ -182,9 +182,9 @@ class GAN:
             if self.device == "cuda":
                 loss_G.append(loss["G"].cpu().detach().numpy())
                 loss_D.append(loss["D"].cpu().detach().numpy())
-
-            loss_G.append(loss["G"].detach().numpy())
-            loss_D.append(loss["D"].detach().numpy())
+            else:
+                loss_G.append(loss["G"].detach().numpy())
+                loss_D.append(loss["D"].detach().numpy())
 
         plt.plot(loss_G, label="Generator")
         plt.plot(loss_D, label="Discriminator")
