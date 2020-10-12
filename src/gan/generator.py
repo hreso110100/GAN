@@ -7,7 +7,7 @@ class UNetDown(nn.Module):
         super(UNetDown, self).__init__()
 
         self.model = Sequential(
-            Conv2d(input_size, output_filters, kernel_size=(4, 1), padding=(1, 0), stride=(2, 1), bias=False),
+            Conv2d(input_size, output_filters, kernel_size=(3, 3), padding=1, stride=(2, 1), bias=False),
             LeakyReLU(0.2)
         )
 
@@ -23,9 +23,8 @@ class UNetUp(nn.Module):
         super(UNetUp, self).__init__()
 
         self.model = Sequential(
-            Upsample(scale_factor=(2, 1)),
-            ZeroPad2d((0, 0, 1, 0)),
-            Conv2d(input_size, output_filters, kernel_size=(4, 1), stride=1, padding=(1, 0), bias=False),
+            Upsample(scale_factor=2),
+            Conv2d(input_size, output_filters, kernel_size=(3, 3), stride=((1, 2)), padding=1, bias=False),
             ReLU(inplace=True),
             BatchNorm2d(output_filters, momentum=0.8),
         )
@@ -69,9 +68,8 @@ class Generator(nn.Module):
         self.up7 = UNetUp(output_filters * 4, output_filters)
 
         self.last = nn.Sequential(
-            Upsample(scale_factor=(2, 4)),
-            ZeroPad2d((0, 0, 1, 0)),
-            Conv2d(output_filters * 2, output_channels, kernel_size=(4, 4), stride=1, padding=(1, 0)),
+            Upsample(scale_factor=2),
+            Conv2d(output_filters * 2, output_channels, kernel_size=(3, 3), stride=(1,2), padding=1),
             Sigmoid(),
         )
 
@@ -93,4 +91,6 @@ class Generator(nn.Module):
         u6 = self.up6(u5, d2)
         u7 = self.up7(u6, d1)
 
-        return self.last(u7)
+        kok = self.last(u7)
+
+        return kok
